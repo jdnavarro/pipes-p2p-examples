@@ -59,11 +59,11 @@ main = do
     addrExchanger :: SockAddr -> IO (Node AddrMsg)
     addrExchanger addr = do
         ps <- newMVar Set.empty
-        node 3741 Nothing (Handlers outgoing
-                                   (incoming ps)
-                                   (register ps)
-                                   (unregister ps)
-                                   (handler ps)) addr
+        node 3741 addr $ Handlers outgoing
+                                 (incoming ps)
+                                 (register ps)
+                                 (unregister ps)
+                                 (handler ps)
 
 outgoing :: (Functor m, MonadIO m) => NodeConnT AddrMsg m (Maybe AddrMsg)
 outgoing = runMaybeT $ do
