@@ -98,6 +98,7 @@ register :: MonadIO m
          -> m ()
 register peers (ADDR addr) = liftIO $ do
     modifyMVar_ peers $ return . Set.insert addr
+register _ _ = error "register: `AddrMsg` needs to be `ADDR addr`"
 
 -- | Assumes the thread has already been killed
 unregister :: MonadIO m
@@ -105,6 +106,7 @@ unregister :: MonadIO m
            -> AddrMsg -> m ()
 unregister peers (ADDR addr) =
     liftIO . modifyMVar_ peers $ return . Set.delete addr
+unregister _ _ = error "unregister: `AddrMsg` needs to be `ADDR addr`"
 
 handler :: (MonadIO m, MonadCatch m)
         => MVar (Set Address)
@@ -128,6 +130,7 @@ handler peers (ADDR addr) = do
             unless (tid' == tid)
                    (liftIO . send sock . serialize magic $ msg)
         _ -> return ()
+handler _ _ = error "handler: `AddrMsg` needs to be `ADDR addr`"
 
 data AddrMsg = GETADDR
              | ADDR Address
