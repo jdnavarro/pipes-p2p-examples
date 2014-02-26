@@ -8,8 +8,7 @@ module Main (main) where
 import Control.Applicative ((<$>), (*>), (<*>))
 import Control.Monad (void, unless, forever)
 import Control.Concurrent
-  ( ThreadId
-  , forkIO
+  ( forkIO
   , myThreadId
   , threadDelay
   , killThread
@@ -22,9 +21,7 @@ import Data.Foldable (traverse_)
 import Control.Exception (finally)
 import GHC.Generics (Generic)
 import Control.Monad.Reader (ask)
-import Data.Map (Map)
-import qualified Data.Map as Map
-import Data.Set (union)
+import Data.Set (Set, union)
 import qualified Data.Set as Set
 import Network.Socket (SockAddr(..), iNADDR_ANY, PortNumber(..))
 import Data.Binary (Binary(..), putWord8, getWord8)
@@ -61,7 +58,7 @@ main = do
   where
     addrExchanger :: SockAddr -> IO (Node AddrMsg)
     addrExchanger addr = do
-        ps <- newMVar Map.empty
+        ps <- newMVar Set.empty
         node 3741 Nothing (Handlers outgoing
                                    (incoming ps)
                                    (register ps)
@@ -79,7 +76,7 @@ outgoing = runMaybeT $ do
     return . ADDR $ Addr addr
 
 incoming :: (Functor m, MonadIO m)
-         => MVar (Map Address ThreadId)
+         => MVar (Set Address)
          -> NodeConnT AddrMsg m (Maybe AddrMsg)
 incoming peers = runMaybeT $ do
     NodeConn n _ <- ask
@@ -87,7 +84,7 @@ incoming peers = runMaybeT $ do
     case msg of
          ME addr@(Addr sockaddr) -> do
             ps <- liftIO $ readMVar peers
-            if Map.notMember addr ps
+            if Set.notMember addr ps
             then do deliver . ME . Addr $ address n
                     deliver ACK
                     expect ACK
@@ -96,35 +93,34 @@ incoming peers = runMaybeT $ do
          _ -> hoistMaybe Nothing
 
 register :: MonadIO m
-         => MVar (Map Address ThreadId)
+         => MVar (Set Address)
          -> AddrMsg
          -> m ()
 register peers (ADDR addr) = liftIO $ do
-    tid <- myThreadId
-    modifyMVar_ peers $ return . Map.insert addr tid
+    modifyMVar_ peers $ return . Set.insert addr
 
 -- | Assumes the thread has already been killed
 unregister :: MonadIO m
-           => MVar (Map Address ThreadId)
+           => MVar (Set Address)
            -> AddrMsg -> m ()
 unregister peers (ADDR addr) =
-    liftIO . modifyMVar_ peers $ return . Map.delete addr
+    liftIO . modifyMVar_ peers $ return . Set.delete addr
 
 handler :: (MonadIO m, MonadCatch m)
-        => MVar (Map Address ThreadId)
+        => MVar (Set Address)
         -> AddrMsg
         -> Consumer (Either (Relay AddrMsg) AddrMsg) (NodeConnT AddrMsg m) r
 handler peers (ADDR addr) = do
     NodeConn n@Node{magic} (Connection _ sock) <- ask
     forever $ await >>= \case
         Right GETADDR -> do
-            ps <- liftIO $ Map.delete addr <$> readMVar peers
-            runEffect $ each (Map.keys ps)
+            ps <- liftIO $ Set.delete addr <$> readMVar peers
+            runEffect $ each (Set.elems ps)
                     >-> P.map (serialize magic . ADDR)
                     >-> toSocket sock
         Right (ADDR a@(Addr a')) -> do
             ps <- liftIO $ readMVar peers
-            unless (Set.null $ Set.fromList [a, addr] `union` Map.keysSet ps)
+            unless (Set.null $ Set.fromList [a, addr] `union` ps)
                    (liftIO . void $ connectFork a'
                                   $ runNodeConn n True a')
         Left (Relay tid' msg) -> do
