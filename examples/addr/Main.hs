@@ -5,8 +5,10 @@
 
 module Main (main) where
 
+import Prelude hiding (log)
 import Control.Applicative ((<$>), (*>), (<*>))
 import Control.Monad (void, unless, forever)
+import Data.Monoid ((<>))
 import Control.Concurrent
   ( forkIO
   , myThreadId
@@ -20,11 +22,13 @@ import Control.Concurrent
 import Data.Foldable (traverse_)
 import Control.Exception (finally)
 import GHC.Generics (Generic)
+import Data.ByteString (ByteString)
+import qualified Data.ByteString.Char8 as B8
 import Control.Monad.Reader (ask)
+import Data.Binary (Binary(..), putWord8, getWord8)
 import Data.Set (Set, union)
 import qualified Data.Set as Set
 import Network.Socket (SockAddr(..), iNADDR_ANY, PortNumber(..))
-import Data.Binary (Binary(..), putWord8, getWord8)
 import Control.Error (runMaybeT, hoistMaybe)
 import Pipes (Consumer, (>->), runEffect, await, each)
 import Pipes.Network.TCP (toSocket, send)
@@ -61,8 +65,8 @@ main = do
         ps <- newMVar Set.empty
         node 3741 addr $ Handlers outgoing
                                  (incoming ps)
-                                 (register ps)
-                                 (unregister ps)
+                                 (register ps addr)
+                                 (unregister ps addr)
                                  (handler ps)
 
 outgoing :: (Functor m, MonadIO m) => NodeConnT AddrMsg m (Maybe AddrMsg)
@@ -93,19 +97,32 @@ incoming peers = runMaybeT $ do
 
 register :: MonadIO m
          => MVar (Set Address)
+         -> SockAddr
          -> AddrMsg
          -> m ()
-register peers (ADDR addr) =
-    liftIO . modifyMVar_ peers $ return . Set.insert addr
-register _ _ = error "register: `AddrMsg` needs to be `ADDR addr`"
+register peers me (ADDR addr@(Addr other)) = liftIO $ do
+    modifyMVar_ peers $ return . Set.insert addr
+    log "added: " me other
+register _ _ _ = error "register: `AddrMsg` needs to be `ADDR addr`"
 
 -- | Assumes the thread has already been killed
 unregister :: MonadIO m
            => MVar (Set Address)
+           -> SockAddr
            -> AddrMsg -> m ()
-unregister peers (ADDR addr) =
-    liftIO . modifyMVar_ peers $ return . Set.delete addr
-unregister _ _ = error "unregister: `AddrMsg` needs to be `ADDR addr`"
+unregister peers me (ADDR addr@(Addr other)) = liftIO $ do
+    modifyMVar_ peers $ return . Set.delete addr
+    log "deleted: " me other
+
+unregister _ _ _ = error "unregister: `AddrMsg` needs to be `ADDR addr`"
+
+log :: (Show a, Show b) => ByteString -> a -> b -> IO ()
+log what addr addr' =
+    B8.putStrLn $ "Node " <> B8.pack (show addr)
+                          <> ": "
+                          <> "Address "
+                          <> what
+                          <> B8.pack (show addr')
 
 handler :: (MonadIO m, MonadCatch m)
         => MVar (Set Address)
