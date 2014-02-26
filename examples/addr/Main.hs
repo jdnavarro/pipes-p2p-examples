@@ -80,9 +80,8 @@ incoming :: (Functor m, MonadIO m)
          -> NodeConnT AddrMsg m (Maybe AddrMsg)
 incoming peers = runMaybeT $ do
     NodeConn n _ <- ask
-    msg <- fetch
-    case msg of
-         ME addr@(Addr sockaddr) -> do
+    fetch >>= \case
+        ME addr@(Addr sockaddr) -> do
             ps <- liftIO $ readMVar peers
             if Set.notMember addr ps
             then do deliver . ME . Addr $ address n
@@ -90,14 +89,14 @@ incoming peers = runMaybeT $ do
                     expect ACK
                     return . ADDR $ Addr sockaddr
             else hoistMaybe Nothing
-         _ -> hoistMaybe Nothing
+        _ -> hoistMaybe Nothing
 
 register :: MonadIO m
          => MVar (Set Address)
          -> AddrMsg
          -> m ()
-register peers (ADDR addr) = liftIO $ do
-    modifyMVar_ peers $ return . Set.insert addr
+register peers (ADDR addr) =
+    liftIO . modifyMVar_ peers $ return . Set.insert addr
 register _ _ = error "register: `AddrMsg` needs to be `ADDR addr`"
 
 -- | Assumes the thread has already been killed
