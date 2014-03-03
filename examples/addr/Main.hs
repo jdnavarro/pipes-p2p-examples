@@ -105,7 +105,6 @@ register peers me (ADDR addr@(Addr other)) = liftIO $ do
     log "added: " me other
 register _ _ _ = error "register: `AddrMsg` needs to be `ADDR addr`"
 
--- | Assumes the thread has already been killed
 unregister :: MonadIO m
            => MVar (Set Address)
            -> SockAddr
@@ -113,7 +112,6 @@ unregister :: MonadIO m
 unregister peers me (ADDR addr@(Addr other)) = liftIO $ do
     modifyMVar_ peers $ return . Set.delete addr
     log "deleted: " me other
-
 unregister _ _ _ = error "unregister: `AddrMsg` needs to be `ADDR addr`"
 
 log :: (Show a, Show b) => ByteString -> a -> b -> IO ()
