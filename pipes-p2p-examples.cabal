@@ -4,17 +4,17 @@ cabal-version:       >=1.10
 tested-with:         GHC == 7.6.3
 build-type:          Simple
 homepage:            https://github.com/jdnavarro/pipes-p2p-examples
+bug-reports:         https://github.com/jdnavarro/pipes-p2p-examples/issues
 license:             BSD3
 license-file:        LICENSE
 author:              Danny Navarro
 maintainer:          j@dannynavarro.net
 category:            Network, Pipes
-synopsis:            Example using pipes-p2p
+synopsis:            Examples using pipes-p2p
 description:
-  For now this package includes a toy P2P network where nodes just exchange
-  network addresses. All network nodes are aware of each other. This can be used
-  as boilerplate code for other P2P networks. Future releases may contain more
-  examples.
+  For now this package includes a dummy P2P network where nodes just exchange
+  their network addresses. This can be used as boilerplate code for other P2P
+  networks. Future releases may contain more examples.
 
 source-repository head
     type: git
