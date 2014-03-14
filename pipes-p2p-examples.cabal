@@ -18,7 +18,7 @@ description:
 
 source-repository head
     type: git
-    location: git@github.com:jdnavarro/pipes-p2p-examples.git
+    location: git://github.com/jdnavarro/pipes-p2p-examples.git
 
 executable address-exchanger
   main-is:             Main.hs
